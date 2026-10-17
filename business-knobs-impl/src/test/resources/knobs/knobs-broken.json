@@ -1,0 +1,1 @@
+{ "service": "orders", "parameters": [ { "key": "app.sample.x", "value": PT10S } ] }

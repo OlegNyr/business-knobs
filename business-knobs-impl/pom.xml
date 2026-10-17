@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.olegnyr</groupId>
+        <artifactId>business-knobs</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>business-knobs-impl</artifactId>
+
+    <name>business-knobs-impl</name>
+    <description>business-knobs engine without Spring: stand file, most specific rule selection, pod
+        snapshot, topic records, emergency patches</description>
+
+    <properties>
+        <module.name>io.github.olegnyr.knobs.impl</module.name>
+    </properties>
+
+    <!-- Исполнение БЕЗ SPRING: файл стенда, вычисление значения по самому точному пути, снимок
+         пода, применение записей топика, реплика, событие смены, аварийная правка, чтение с
+         контекстом. Собирается Knobs.builder() кодом сервиса либо автоконфигурацией
+         business-knobs-spring-boot. Spring сюда не входит вовсе — это держит тест-скан
+         в KnobsTest. -->
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>business-knobs-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>tools.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <!-- Разбор текста аварийной заплатки: optional — нужен только тому, кто ставит
+             правки. -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Группа параметров на абстрактном классе: optional — подкласс строит ByteBuddy;
+             без него группы объявляются интерфейсами, а класс падает на старте с подсказкой. -->
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Метрики пода по параметрам: optional — регистр даёт сервис. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

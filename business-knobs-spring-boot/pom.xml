@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.olegnyr</groupId>
+        <artifactId>business-knobs</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>business-knobs-spring-boot</artifactId>
+
+    <name>business-knobs-spring-boot</name>
+    <description>business-knobs for Spring Boot: auto-configuration, parameter layer in Environment,
+        parameter groups as beans, emergency patch actuator endpoint</description>
+
+    <properties>
+        <module.name>io.github.olegnyr.knobs.boot</module.name>
+    </properties>
+
+    <!-- Spring-адаптер: слой параметров в Environment до создания бинов, автоконфигурация над
+         классами business-knobs-impl, событие смены — слушателям контекста, аварийная точка
+         актуатора. Своего исполнения нет: снимок, применение записей и правка живут в impl и
+         работают и без Spring. -->
+    <dependencies>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>business-knobs-impl</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Слой параметров ставит EnvironmentPostProcessor Spring Boot. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-autoconfigure</artifactId>
+        </dependency>
+        <!-- Аварийная точка параметров: optional — актуатор даёт сервис. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-actuator</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Метрики пода: optional — регистр даёт сервис. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Разбор заплатки — в impl; здесь — условие точки: без SnakeYAML её нет. -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Оракул лога: перехват вывода через ListAppender настоящего logback. -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Группа на абстрактном классе в тестах: в рантайме ByteBuddy приносит сервис, если хочет классы. -->
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Тесты поднимают контексты Spring Boot, а система логирования Boot при старте
+                 переконфигурирует logback и снимает аппендер, которым оракул лога перехватывает
+                 вывод. В тестах адаптера она выключена: logback остаётся
+                 с конфигурацией по умолчанию. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <org.springframework.boot.logging.LoggingSystem>none</org.springframework.boot.logging.LoggingSystem>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

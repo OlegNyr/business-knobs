@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Исключения SpotBugs/FindSecBugs для business-knobs.
+
+  Подавляются только известные ложные срабатывания:
+    - классы, сгенерированные Lombok (@Value/@Builder выглядят странно для байткод-анализа);
+    - тестовый код.
+
+  Точечные подавления правил безопасности (Class + Bug) добавляются сюда только после ручного
+  разбора срабатывания и с условием, при котором подавление обязано сниматься.
+-->
+<FindBugsFilter>
+  <Match>
+    <!-- Lombok @Builder → вложенный класс "Builder"; @SuperBuilder → "<Class>Builder"
+         (+ абстрактный билдер). Шаблон покрывает оба варианта. -->
+    <Class name="~.*\$.*Builder.*"/>
+  </Match>
+  <Match>
+    <Class name="~.*\$BuilderImpl.*"/>
+  </Match>
+  <Match>
+    <!-- Lombok @SuperBuilder/@Value — поля final, конструктор не валидирует null. -->
+    <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2,EI_EXPOSE_REP3"/>
+  </Match>
+  <Match>
+    <!-- Тесты не проверяются правилами безопасности. -->
+    <Source name="~.*[Tt]est\.java"/>
+  </Match>
+  <Match>
+    <!-- HelpMojo плагина генерирует maven-plugin-plugin (цель helpmojo); править его нельзя. -->
+    <Class name="io.github.olegnyr.knobs.generator.HelpMojo"/>
+  </Match>
+
+  <Match>
+    <!--
+      StandFiles.read открывает URL файла стенда параметров. Адрес приходит только из
+      ClassLoader.getResources по фиксированному пути knobs/knobs-<стенд>.json, где
+      стенд — активный профиль сервиса либо имя, переданное кодом сервиса; ни HTTP, ни брокер,
+      ни админка в этот путь не входят. Появление адреса из внешнего ввода обязано снимать это
+      подавление.
+    -->
+    <Class name="io.github.olegnyr.knobs.impl.StandFiles"/>
+    <Bug pattern="URLCONNECTION_SSRF_FD"/>
+  </Match>
+
+  <Match>
+    <!--
+      Разбор аварийной заплатки по схеме YAML 1.2 core: шаблоны чисел резолвера и ловушки
+      «ведущий ноль / 0x / 0o / 0b». Эвристика REDOS срабатывает на соседние квантификаторы, но
+      здесь у каждого свой класс символов и они разделены обязательными литералами (\., [eE],
+      префикс основания); вложенных квантификаторов нет — перебор линейный. Вход — один скаляр
+      текста заплатки с точки актуатора под отдельной ролью эксплуатации. Шаблон с вложенным либо
+      перекрывающимся квантификатором обязан снимать это подавление.
+    -->
+    <Or>
+      <Class name="io.github.olegnyr.knobs.impl.ParameterPatchReader"/>
+      <Class name="io.github.olegnyr.knobs.impl.ParameterPatchReader$CoreSchemaResolver"/>
+    </Or>
+    <Bug pattern="REDOS"/>
+  </Match>
+  <Match>
+    <!--
+      Генератор файлов стендов читает knobs.yaml по схеме YAML 1.2 core — те же шаблоны чисел и
+      ловушек «ведущий ноль / 0x / 0o / 0b», что у разбора заплатки выше, плюс шаблон сегмента ключа
+      kebab-case [a-z0-9]+(?:-[a-z0-9]+)*. В каждом повторении обязательный литерал (\., [eE], префикс
+      основания, дефис), вложенных перекрывающихся квантификаторов нет — перебор линейный. Вход —
+      собственный исходный файл разработчика на сборке, а не внешний ввод. Шаблон с вложенным либо
+      перекрывающимся квантификатором обязан снимать это подавление.
+    -->
+    <Or>
+      <Class name="io.github.olegnyr.knobs.generator.SourceYaml"/>
+      <Class name="io.github.olegnyr.knobs.generator.SourceYaml$CoreSchemaResolver"/>
+      <Class name="io.github.olegnyr.knobs.generator.StandFileGenerator"/>
+    </Or>
+    <Bug pattern="REDOS"/>
+  </Match>
+</FindBugsFilter>

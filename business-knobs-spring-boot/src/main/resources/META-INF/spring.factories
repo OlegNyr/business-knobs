@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+io.github.olegnyr.knobs.boot.ParameterEnvironmentPostProcessor

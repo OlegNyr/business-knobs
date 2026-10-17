@@ -1,0 +1,19 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Запуск примера из IDEA. Перед стартом: сборка IDEA, затем цель Maven process-resources
+       примера — плагин business-knobs-maven-plugin кладёт knobs/knobs-<стенд>.json в
+       target/classes (сборка IDEA плагины Maven не запускает). Нужен business-knobs-example/pom.xml,
+       добавленный как Maven-проект, и ./mvnw install библиотеки. -->
+  <configuration default="false" name="ExampleApplication" type="Application" factoryName="Application">
+    <envs>
+      <env name="KNOBS_STAND" value="prod" />
+      <env name="KNOBS_DC" value="dc2" />
+      <env name="PAYMENT_URL" value="https://pay.example.com" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="io.github.olegnyr.knobs.example.ExampleApplication" />
+    <module name="business-knobs-example" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+      <option name="Maven.BeforeRunTask" enabled="true" file="$PROJECT_DIR$/business-knobs-example/pom.xml" goal="process-resources" />
+    </method>
+  </configuration>
+</component>

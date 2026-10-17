@@ -1,0 +1,22 @@
+{
+  "service": "orders",
+  "version": "1.0.0",
+  "stand": "patch",
+  "dimensions": [
+    { "key": "service", "kind": "REGISTRY" },
+    { "key": "dc", "kind": "STAND" },
+    { "key": "tenant", "kind": "STAND" },
+    { "key": "segment", "kind": "CODE", "values": ["MASS", "PREMIUM", "PRIVATE", "VIP"] },
+    { "key": "channel", "kind": "REGISTRY" }
+  ],
+  "parameters": [
+    { "key": "app.patch.mode", "name": "Режим", "type": "STRING", "allowed": ["fast", "slow"], "value": "fast" },
+    { "key": "app.patch.label", "name": "Подпись", "type": "STRING", "value": "x" },
+    { "key": "app.patch.flag", "name": "Признак", "type": "BOOLEAN", "value": true },
+    { "key": "app.patch.limit", "name": "Предел", "type": "INTEGER", "min": 1, "max": 100, "value": 10 },
+    { "key": "app.patch.timeout", "name": "Таймаут", "type": "DURATION", "min": "PT1S", "max": "PT1M",
+      "value": "PT10S" },
+    { "key": "app.patch.until", "name": "Срок", "type": "DATE", "value": "2026-11-01" },
+    { "key": "app.patch.sizes", "name": "Размеры", "type": "INTEGER", "list": true, "max": 10, "value": [1, 2] }
+  ]
+}

@@ -1,0 +1,93 @@
+{
+  "service": "orders",
+  "version": "1.0.0",
+  "stand": "test",
+  "dimensions": [
+    { "key": "service", "kind": "REGISTRY" },
+    { "key": "dc", "kind": "STAND" },
+    { "key": "tenant", "kind": "STAND" },
+    { "key": "segment", "kind": "CODE", "values": ["MASS", "PREMIUM", "PRIVATE", "VIP"] },
+    { "key": "channel", "kind": "REGISTRY" }
+  ],
+  "parameters": [
+    {
+      "key": "app.sample.read-timeout",
+      "name": "Таймаут чтения",
+      "type": "DURATION",
+      "value": "PT10S",
+      "rules": [ { "when": { "dc": "dc2" }, "value": "PT15S" } ]
+    },
+    {
+      "key": "app.sample.base-url",
+      "name": "Адрес",
+      "type": "STRING",
+      "value": "https://${SAMPLE_HOST}/api"
+    },
+    {
+      "key": "app.sample.wait-notice",
+      "name": "Текст ожидания",
+      "type": "STRING",
+      "value": "обычный",
+      "rules": [
+        { "when": { "tenant": "tenant-2" }, "value": "арендатор" },
+        { "when": { "segment": "VIP" }, "value": "vip" },
+        { "when": { "channel": "chat" }, "value": "канал" }
+      ]
+    },
+    {
+      "key": "app.sample.channel",
+      "name": "Канал общего параметра",
+      "type": "STRING",
+      "value": "все",
+      "rules": [
+        { "when": { "service": "orders" }, "value": "свой" },
+        { "when": { "service": "billing" }, "value": "чужой" }
+      ]
+    },
+    {
+      "key": "app.sample.mirror-url",
+      "name": "Зеркало",
+      "type": "STRING",
+      "value": "https://mirror",
+      "rules": [ { "when": { "dc": "dc1" }, "value": "https://${SAMPLE_DC1_HOST}" } ]
+    },
+    {
+      "key": "app.sample.token-name",
+      "name": "Имя реквизита",
+      "type": "STRING",
+      "value": "${SAMPLE_MISSING}"
+    },
+    {
+      "key": "app.sample.property-host",
+      "name": "Хост из свойства",
+      "type": "STRING",
+      "value": "${SAMPLE_PROPERTY_ONLY}"
+    },
+    {
+      "key": "app.sample.nested",
+      "name": "Подстановка в значении переменной",
+      "type": "STRING",
+      "value": "${SAMPLE_NESTED}"
+    },
+    {
+      "key": "app.sample.extensions",
+      "name": "Расширения",
+      "type": "STRING",
+      "list": true,
+      "value": ["jpg", "a,b"]
+    },
+    {
+      "key": "app.sample.blocked",
+      "name": "Запрещённые расширения",
+      "type": "STRING",
+      "list": true,
+      "value": []
+    },
+    { "key": "app.sample.retired", "name": "Снятый", "type": "STRING", "value": "старое", "deleted": true },
+    { "key": "app.capabilities.stickers", "name": "Стикеры", "type": "BOOLEAN", "value": false,
+      "rules": [ { "when": { "segment": "VIP" }, "value": true } ] },
+    { "key": "app.capabilities.max-files", "name": "Файлов в сообщении", "type": "INTEGER", "value": 5 },
+    { "key": "app.capabilities.greeting", "name": "Приветствие", "type": "STRING", "value": "Здравствуйте" },
+    { "key": "app.sample.big-number", "name": "Большое число", "type": "INTEGER", "value": 5000000000 }
+  ]
+}

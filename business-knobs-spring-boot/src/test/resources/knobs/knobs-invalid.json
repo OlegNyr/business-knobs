@@ -1,0 +1,1 @@
+{ "service": "orders", "version": "1.0.0", "stand": "invalid", "parameters": [ { "key": "app.sample.x", "type": "STRING", "value": "секрет-1" } ] }

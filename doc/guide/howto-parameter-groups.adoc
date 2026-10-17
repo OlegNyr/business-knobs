@@ -1,0 +1,307 @@
+= Как читать параметры группой: инструкция для разработчика
+:revdate: 2026-10-17
+:toc: left
+:toclevels: 2
+:sectnums:
+
+Короткая инструкция по группам параметров (ADR-0003). Формат файла стенда и правила выбора
+значения — `doc/contract/stand-file.adoc`; здесь только «что написать, чтобы заработало».
+
+== Что это
+
+Группа параметров — интерфейс (или абстрактный класс) с геттерами. Вы объявляете метод,
+библиотека сама читает значение при *каждом* вызове: из файла стенда, реплики или аварийной
+правки, с учётом правил по измерениям пути (ЦОД пода и те, что задал сервис). Значений объект не
+хранит, поэтому
+правка в админке действует без рестарта, и геттер, вызванный на потоке обращения, видит правило
+этого обращения.
+
+[source,java]
+----
+@Knob("app.routing")              // префикс ключей
+public interface RoutingKnobs {
+
+    int hopLimit();                         // ключ app.routing.hop-limit
+
+    Duration segmentTimeout();              // ключ app.routing.segment-timeout
+
+    @KnobKey("segment.call-enabled")   // хвост ключа задан явно
+    boolean segmentCallEnabled();           // ключ app.routing.segment.call-enabled
+
+    Optional<Integer> retryLimit();         // значения может не быть
+}
+----
+
+== Шаги
+
+=== Шаг 1. Объявите параметр в `knobs.yaml`
+
+Файл — `src/main/knobs/knobs.yaml` модуля приложения (полный пример с комментариями —
+`doc/guide/knobs-example.yaml`). Ключ пишется «лесенкой», тип выводится
+из значения, `default` обязателен: это и есть умолчание. Другого места для умолчания нет —
+ни `application.yaml`, ни переменные окружения группой не читаются.
+
+[source,yaml]
+----
+parameters:
+  app:
+    routing:
+      hop-limit:
+        name: Потолок переходов
+        description: Сколько автоматических переходов между проектами допускает обращение
+        default: 5
+        min: 1
+      segment-timeout:
+        name: Таймаут дозапроса сегмента
+        default: 10s
+        rules:
+          - when: [/dc2]
+            value: 15s
+----
+
+Имя ключа — строчные буквы и дефисы (`hop-limit`, не `hopLimit`). Структурный ключ — тот, что
+читает `@ConditionalOnProperty` или плейсхолдер аннотации — параметром быть не может: он
+читается один раз на старте, и контекст ему не поможет. Такие ключи остаются в окружении.
+
+=== Шаг 2. Объявите интерфейс группы
+
+Правила объявления:
+
+* на типе — `@Knob("префикс")`; префикс без точки в конце; пустой `""` — ключ равен
+  хвосту метода;
+* методы без аргументов, с результатом;
+* хвост ключа — имя метода в kebab-case (`hopLimit` → `hop-limit`) либо `@KnobKey("…")`,
+  когда в хвосте есть вложенность (`segment.call-enabled`);
+* тип результата — тип параметра: `boolean`, `int`, `long`, `double`, `String`, `Duration`,
+  `LocalDate`, `List<String>` и прочие списки; `Optional<T>` — если значения может не быть;
+* `default`-методы можно: они исполняются поверх живых геттеров.
+
+[source,java]
+----
+@Knob("app.routing")
+public interface RoutingKnobs {
+
+    int hopLimit();
+
+    Duration segmentTimeout();
+
+    default boolean slowSegmentLookup() {
+        return segmentTimeout().compareTo(Duration.ofSeconds(10)) > 0;
+    }
+}
+----
+
+Интерфейс делайте `public`, если его бин нужен другим модулям, иначе package-private.
+
+=== Шаг 3. Зарегистрируйте группу
+
+В автоконфигурации модуля (класс с `@AutoConfiguration`, например `CoreAutoConfiguration`) либо
+в любом классе `@Configuration` приложения:
+
+[source,java]
+----
+@AutoConfiguration
+@EnableKnobs(basePackageClasses = RoutingKnobs.class)
+public class CoreAutoConfiguration {
+}
+----
+
+`basePackageClasses` называет пакет; все интерфейсы с `@Knob` в нём и ниже станут
+бинами. Без аргументов сканируется пакет самого класса с аннотацией.
+
+=== Шаг 4. Используйте через конструктор
+
+[source,java]
+----
+@Service
+@RequiredArgsConstructor
+class RoutingDecider {
+
+    private final RoutingKnobs routing;
+
+    void route(ConversationSession session) {
+        if (session.getHop() >= routing.hopLimit()) {   // читается здесь и сейчас
+            ...
+        }
+    }
+}
+----
+
+Не кэшируйте результат геттера в поле: смысл группы в том, что значение читается при вызове.
+
+=== Шаг 5. Напишите тест
+
+В юнит-тесте группа с одним методом — лямбда над полем теста. Поменяли поле — следующий вызов
+видит новое значение, ровно как после записи топика:
+
+[source,java]
+----
+private Duration maxWait = Duration.ofMinutes(10);
+
+private final OpenRetryWatchdog watchdog = new OpenRetryWatchdog(..., () -> maxWait, ...);
+
+@Test
+void sweep_shouldExpire_whenParameterLowersMaxWait() {
+    maxWait = Duration.ofMinutes(5);
+    watchdog.sweep();
+    ...
+}
+----
+
+Группу с несколькими методами мокают как любой интерфейс (`@Mock`, `when(routing.hopLimit()).thenReturn(2)`)
+либо пишут маленький класс-двойник.
+
+Тестам со Spring-контекстом значения нужны в файле стенда: запасного значения у группы нет, а свойство
+окружения (`app.routing.hop-limit=2` в `@SpringBootTest`) группа не читает.
+
+* Интеграционные тесты приложения идут на стенде `default` — файле
+  `src/test/resources/knobs/knobs-default.json` со всем каталогом.
+* Срез (`@WebMvcTest`, `@DataJpaTest` и т. п.) автоконфигураций не поднимает — подключите
+  библиотеку тестовой конфигурацией:
+
+[source,java]
+----
+@TestConfiguration(proxyBeanMethods = false)
+@ImportAutoConfiguration(ParameterAutoConfiguration.class)
+@EnableKnobs(basePackageClasses = RoutingKnobs.class)
+class ModuleParameterGroups {
+}
+----
+
+В интеграционном тесте с файлом стенда значение берётся из `knobs.yaml`; поменять его на
+ходу можно записью в снимок:
+
+[source,java]
+----
+ParameterStore store = context.getBean(ParameterStore.class);
+store.replace(store.parameters().withRecord(ParameterRecord.builder()
+        .key("app.routing.hop-limit").type(ParameterType.INTEGER)
+        .value(ParameterJson.readValue("7")).version(10L).build()));
+assertThat(routing.hopLimit()).isEqualTo(7);
+----
+
+== Что произойдёт, если…
+
+[cols="2,3", options="header"]
+|===
+| Ситуация | Поведение
+
+| У параметра нет значения для текущего пути (нет `default`, правило только для другого сегмента)
+| Метод с `Optional` вернёт пусто. Метод с `int`, `String` и т. п. бросит
+  `ParameterMissingException` с ключом. Окружение и `application.yaml` не проверяются.
+
+| Тип метода не совпал с типом параметра (`int` у параметра `duration`)
+| `ParameterTypeMismatchException` с ключом и типами. Значение в сообщении не печатается.
+
+| Метод с аргументами, без результата; тип без `@Knob`
+| Отказ при подъёме контекста, не при вызове.
+
+| Ключ метода не объявлен в `knobs.yaml`
+| Как «нет значения»: пусто либо `ParameterMissingException`. Проверяйте ключи тестом каталога.
+
+| Геттер вызван на потоке, где путь обращения не открыт (`main`, планировщик, чужой пул)
+| Отвечает значение пути пода: сервис и ЦОД. Правила по измерениям обращения не применяются.
+  Так же ведёт себя `Parameters`.
+
+| В правиле записи админки измерение, которого нет в `dimensions` файла стенда
+| Правило в выборе не участвует (TRACE с причиной). Задайте измерения сервиса — раздел
+  «Измерения пути».
+
+| Запись из админки поменяла значение
+| Следующий вызов геттера уже видит новое. Если по смене нужно что-то сделать (пересоздать пул,
+  перепланировать таймер), слушайте событие `ParametersChanged`.
+|===
+
+== Группа на абстрактном классе
+
+Можно объявить абстрактный класс вместо интерфейса — например, когда нужны общие вычисления с
+состоянием класса. Абстрактные методы читаются как геттеры, конкретные остаются как написаны.
+
+[source,java]
+----
+@Knob("app.routing")
+public abstract class RoutingBase {
+
+    public abstract int hopLimit();
+
+    public int hopLimitWithReserve() {
+        return hopLimit() + 1;
+    }
+}
+----
+
+Условия: класс не `final`, есть конструктор без аргументов, и в рантайме сервиса есть
+`net.bytebuddy:byte-buddy` (в библиотеке он optional). Без ByteBuddy подъём падает с подсказкой
+«добавьте зависимость либо объявите группу интерфейсом».
+
+== Без Spring
+
+[source,java]
+----
+try (Knobs settings = Knobs.builder()
+        .service("orders").stand("prod").dc("dc2")
+        .build()) {
+    RoutingKnobs routing = settings.group(RoutingKnobs.class);
+    int limit = routing.hopLimit();
+}
+----
+
+Правила те же; целое из каталога сужается до `int`, если влезает, иначе
+`ParameterTypeMismatchException`.
+
+== Измерения пути
+
+Какие измерения бывают в правилах и в каком порядке они уточняют друг друга, задаёт секция
+`dimensions` в `knobs.yaml` (ADR-0004): генератор переносит её в файл стенда, библиотека берёт
+порядок оттуда. Настраивать в сервисе ничего не нужно — только ЦОД пода:
+
+[source,yaml]
+----
+# knobs.yaml
+dimensions:
+  service: { kind: registry }
+  dc:      { kind: stand }
+  tenant:  { kind: stand }
+  segment: { kind: code, values: [MASS, VIP] }
+----
+
+[source,yaml]
+----
+# application.yaml
+knobs:
+  dc: dc2        # ЦОД пода, обычно переменной KNOBS_DC
+----
+
+Чем дальше в списке последняя названная часть пути правила, тем правило точнее: при этом
+порядке правило `{segment: VIP}` точнее `{dc: dc2}`. Короткий путь `/dc2/*/VIP` разбирается по
+местам этого списка, поэтому новое измерение добавляйте в конец, а правила по нескольким
+измерениям пишите именованной формой `when: [{segment: VIP}]` — ей порядок не важен.
+
+`knobs.dimensions` нужен только сервису, чей файл стенда измерений не объявляет. Заданный и
+расходящийся с файлом — отказ на старте с обоими списками.
+
+== Контекст обращения
+
+Путь обращения — значения измерений обращения (например, арендатор и сегмент клиента) —
+открывает код приложения на входе, и только тогда геттеры отвечают по нему:
+
+[source,java]
+----
+ContextPath path = ContextPath.builder().put("segment", "VIP").build();
+try (ParameterContext.Scope ignored = ParameterContext.open(path)) {
+    routing.segmentTimeout();   // видит правило для VIP
+}
+----
+
+Между потоками путь едет вместе с трассой через Micrometer context-propagation, если снимок
+контекста снят там, где путь открыт.
+
+== Чеклист перед коммитом
+
+. Ключ есть в `knobs.yaml` с `default`, имя в kebab-case.
+. Измерения, которые называют правила, объявлены в `dimensions` `knobs.yaml`; новое — в конце списка.
+. Умолчание не дублируется в `application.yaml` и в коде.
+. Метод без аргументов, тип совпадает с типом параметра, `Optional` там, где значения может не быть.
+. Пакет группы назван в `@EnableKnobs` автоконфигурации модуля.
+. Группа приходит через конструктор, результат геттера не кэшируется.
+. Есть юнит-тест с моком группы.

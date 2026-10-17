@@ -1,0 +1,145 @@
+{
+  "service": "orders",
+  "version": "1.8.0",
+  "stand": "test",
+  "dimensions": [
+    {
+      "key": "service",
+      "kind": "REGISTRY"
+    },
+    {
+      "key": "dc",
+      "kind": "STAND"
+    },
+    {
+      "key": "tenant",
+      "kind": "STAND"
+    },
+    {
+      "key": "segment",
+      "kind": "CODE",
+      "values": [
+        "MASS",
+        "PREMIUM",
+        "PRIVATE",
+        "VIP"
+      ]
+    },
+    {
+      "key": "channel",
+      "kind": "REGISTRY"
+    }
+  ],
+  "parameters": [
+    {
+      "key": "app.crm.base-url",
+      "name": "Адрес CRM",
+      "type": "STRING",
+      "format": "url",
+      "value": "${APP_CRM_URL}",
+      "rules": []
+    },
+    {
+      "key": "app.crm.read-timeout",
+      "name": "Таймаут чтения CRM",
+      "description": "Сколько ждём ответа CRM, прежде чем обслужить клиента как массового",
+      "type": "DURATION",
+      "min": "PT0.1S",
+      "max": "PT1M",
+      "value": "PT10S",
+      "rules": [
+        {
+          "when": {
+            "dc": "dc2"
+          },
+          "value": "PT15S"
+        }
+      ]
+    },
+    {
+      "key": "app.crm.retry-count",
+      "name": "Сколько раз повторять запрос к CRM",
+      "type": "INTEGER",
+      "min": 0,
+      "max": 5,
+      "value": 2,
+      "rules": [
+        {
+          "when": {
+            "dc": "dc2"
+          },
+          "value": 3
+        }
+      ]
+    },
+    {
+      "key": "app.maintenance.enabled",
+      "name": "Режим обслуживания — клиенту показывается заглушка",
+      "type": "BOOLEAN",
+      "value": false,
+      "rules": []
+    },
+    {
+      "key": "app.media.allowed-extensions",
+      "name": "Расширения файлов, которые клиент может прислать",
+      "type": "STRING",
+      "list": true,
+      "value": [
+        "jpg",
+        "png",
+        "pdf"
+      ],
+      "rules": []
+    },
+    {
+      "key": "app.queue.overflow-policy",
+      "name": "Что делать с обращением, не дождавшимся оператора",
+      "type": "STRING",
+      "allowed": [
+        "requeue",
+        "fallback",
+        "close"
+      ],
+      "value": "fallback",
+      "rules": []
+    },
+    {
+      "key": "app.routing.project-enabled",
+      "deleted": true
+    },
+    {
+      "key": "app.routing.segment.call-enabled",
+      "name": "Запрашивать сегмент клиента в CRM",
+      "type": "BOOLEAN",
+      "value": true,
+      "rules": []
+    },
+    {
+      "key": "app.support.wait-notice",
+      "name": "Текст клиенту при ожидании оператора",
+      "type": "STRING",
+      "value": "Оператор скоро подключится",
+      "rules": [
+        {
+          "when": {
+            "segment": "VIP"
+          },
+          "value": "Ваш персональный менеджер уже подключается"
+        },
+        {
+          "when": {
+            "segment": "PRIVATE"
+          },
+          "value": "Ваш персональный менеджер уже подключается"
+        }
+      ]
+    },
+    {
+      "key": "app.survey.start-date",
+      "name": "Дата, с которой клиенту показывается опрос оценки обслуживания",
+      "type": "DATE",
+      "value": "2026-11-01",
+      "rules": []
+    }
+  ]
+}

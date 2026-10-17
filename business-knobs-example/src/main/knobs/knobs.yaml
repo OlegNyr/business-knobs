@@ -1,0 +1,61 @@
+# Параметры примера: магазин shop. Из этого файла плагин business-knobs-maven-plugin на сборке делает
+# knobs/knobs-dev.json и knobs/knobs-prod.json в ресурсах — по файлу на стенд.
+# Полный разбор формата с комментариями — doc/guide/knobs-example.yaml.
+
+service: shop
+stands: [dev, prod]
+
+# Порядок измерений (без service) — порядок точности правил, библиотека берёт его из файла стенда,
+# и порядок мест в коротком пути /dc/tenant/segment. Новое измерение добавляйте в конец списка:
+# вставка в середину сдвинет смысл уже написанных коротких путей. Именованной форме
+# when: [{segment: VIP}] порядок не важен.
+dimensions:
+  service: { kind: registry }
+  dc:      { kind: stand }
+  tenant:  { kind: stand }
+  segment: { kind: code, values: [REGULAR, VIP] }
+
+parameters:
+  app:
+    checkout:
+      max-items:
+        name: Сколько позиций можно положить в корзину
+        default: 20
+        min: 1
+        max: 500
+        rules:
+          - when: [{segment: VIP}]           # именованная форма: сегмент VIP, остальное — любое
+            value: 100
+
+      payment-timeout:
+        name: Сколько ждать ответа платёжного шлюза
+        default: 10s
+        min: 1s
+        max: 2m
+        rules:
+          all:
+            - when: [/dc2]                   # из второго ЦОД до шлюза дальше
+              value: 15s
+          dev:
+            - value: 1m                      # на dev шлюз-заглушка медленный
+
+      greeting:
+        name: Приветствие на странице оформления
+        default: Добро пожаловать!
+        rules:
+          - when: [/*/acme]                  # арендатор acme
+            value: Добро пожаловать в магазин ACME!
+
+      express-delivery:
+        name: Включена ли экспресс-доставка
+        default: false
+        rules:
+          prod:
+            - when: [/*/acme/VIP]            # только на проде, acme и VIP
+              value: true
+
+      payment-url:
+        name: Адрес платёжного шлюза
+        type: string                         # из подстановки тип не вывести
+        format: url
+        default: ${PAYMENT_URL}              # разрешается из окружения при чтении файла
