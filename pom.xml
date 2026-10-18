@@ -256,9 +256,11 @@
                             <publishingServerId>central</publishingServerId>
                             <!-- Выложенную версию из Central не удалить. Вручную выкладка
                                  проверяется на портале и публикуется кнопкой; CI по тегу
-                                 публикует сразу и ждёт результата. -->
+                                 публикует сразу. Ждём только проверки портала: отказ (подпись,
+                                 POM, javadoc) валит сборку, а раскладку по зеркалам Central,
+                                 которая идёт до получаса, раннер не ждёт. -->
                             <autoPublish>${central.autoPublish}</autoPublish>
-                            <waitUntil>published</waitUntil>
+                            <waitUntil>validated</waitUntil>
                         </configuration>
                     </plugin>
                 </plugins>
